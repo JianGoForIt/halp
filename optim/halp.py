@@ -71,7 +71,7 @@ class HALP(torch.optim.SGD):
         for p in self._params:
             if p.grad is not None:
                 p.grad.detach()
-                p.grad.zero_()
+                p.grad.data.zero_()
 
     def _set_weights_grad(self,ws,gs):
         """ Set the pointers in params to ws and gs for p.data and p.grad.data
