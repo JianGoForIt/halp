@@ -3,6 +3,7 @@ import torch
 from torch.autograd import Variable
 import copy, logging
 import math
+import numpy as np
 
 from .. import quantize
 
@@ -145,14 +146,18 @@ class LMHALP(torch.optim.SGD):
         # Calculate gradient of prev_w
         self._set_weights_grad(self._prev_w, self._prev_grad)
         self._zero_grad()
-        # TODO: get the intermediate gradient out
+
+        # Get the intermediate gradient out
+        # X is the RFF
         _, X, l_prime_prev = closure()
 
         # Calculate the current curr_w (which equals prev_w + z)
         self._set_weights_grad(self._curr_w, self._curr_grad)
         self._zero_grad()
-        # TODO: get the intermediate gradient out
-        loss, X, l_prime_curr = closure()
+        # Get the intermediate gradient out
+        # We pass in the quantized RFF in the closure call for model prev
+        # so that the quantized feature are sync in the two gradient calculation
+        loss, X, l_prime_curr = closure(feat=X)
 
         # Adjust the current gradient using the previous gradient and the full gradient.
         # TODO: change the way the gradient is calculated, and adapt to low precision
@@ -161,32 +166,44 @@ class LMHALP(torch.optim.SGD):
         #     if p.grad is not None:
         #         # gradient_update = curr_grad - prev_grad + full_grad
         #         p.grad.data -= (self._prev_grad[i] - self._full_grad[i])
+
         for i, p in enumerate(self._params):
             # Adjust gradient in-place
-            print "before ", p.grad.data
-
+            # print "before ", p.grad.data
             if p.grad is not None:
                 lr = self.param_groups[0]['lr']
-                # beta = lr * (l_prime_curr - l_prime_prev)
-                beta = lr * l_prime_curr
+                beta = lr * (l_prime_curr - l_prime_prev)
+                # the next line below can be used to test whether the intermediate grad based 
+                # gradient calculation is correct or not
+                # beta = lr * l_prime_curr
                 # TODO quantize gamma
                 gamma = beta 
                 if len(list(p.data.size() ) ) == 2:
+                    assert np.allclose(torch.mm(l_prime_curr.data.transpose(0, 1), X.data).cpu().numpy(), p.grad.data.cpu().numpy() )
+                    assert np.allclose(torch.mm(l_prime_prev.data.transpose(0, 1), X.data).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
                     # this is the weight matrix
-                    # p.grad.data.copy_(torch.mm(gamma.data.transpose(0, 1), X.data) + self._full_grad[i] * lr)
-                    p.grad.data.copy_(torch.mm(gamma.data.transpose(0, 1), X.data) )
+                    p.grad.data.copy_(torch.mm(gamma.data.transpose(0, 1), X.data) + self._full_grad[i] * lr)
+                    # the next line below can be used to test whether the intermediate grad based 
+                    # gradient calculation is correct or not
+                    # p.grad.data.copy_(torch.mm(gamma.data.transpose(0, 1), X.data) )
                 else:
                     # this is the bias vector
                     n_sample = gamma.size(0)
-                    # p.grad.data.copy_(torch.squeeze(torch.mm(gamma.data.transpose(0, 1), 
-                    #     torch.ones(n_sample, 1).type(type(gamma.data) ) ) ) + self._full_grad[i] * lr)
+                    assert np.allclose(torch.squeeze(torch.mm(l_prime_curr.data.transpose(0, 1), 
+                        torch.ones(n_sample, 1).type(type(l_prime_curr.data) ) ) ), p.grad.data.cpu().numpy() )
+                    assert np.allclose(torch.squeeze(torch.mm(l_prime_prev.data.transpose(0, 1), 
+                        torch.ones(n_sample, 1).type(type(l_prime_prev.data) ) ) ), self._prev_grad[i].cpu().numpy() )
                     p.grad.data.copy_(torch.squeeze(torch.mm(gamma.data.transpose(0, 1), 
-                        torch.ones(n_sample, 1).type(type(gamma.data) ) ) ) )
-
+                        torch.ones(n_sample, 1).type(type(gamma.data) ) ) ) + self._full_grad[i] * lr)
+                    # the next line below can be used to test whether the intermediate grad based 
+                    # gradient calculation is correct or not
+                    # p.grad.data.copy_(torch.squeeze(torch.mm(gamma.data.transpose(0, 1), 
+                    #     torch.ones(n_sample, 1).type(type(gamma.data) ) ) ) )
+                # to adapt the quantized update to the operation of optimizer,
+                # we divide the grad by lr. It is multiplied back in optimizer step.
                 p.grad.data /= lr
                 # gradient_update = curr_grad - prev_grad + full_grad
                 # p.grad.data -= (self._prev_grad[i] - self._full_grad[i] )
-            print "after ", p.grad.data
 
         # Set the param pointers to z to update z with step
         self._set_weights_grad(self._z, None)
