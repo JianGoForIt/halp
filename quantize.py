@@ -30,5 +30,9 @@ def saturate_(input, scale_factor, bits):
 # Monkey patch torch.Tensor
 torch.Tensor.quantize_ = quantize_
 torch.Tensor.saturate_ = saturate_
+torch.DoubleTensor.quantize_ = quantize_
+torch.DoubleTensor.saturate_ = saturate_
 torch.cuda.FloatTensor.quantize_ = quantize_
 torch.cuda.FloatTensor.saturate_ = saturate_
+torch.cuda.DoubleTensor.quantize_ = quantize_
+torch.cuda.DoubleTensor.saturate_ = saturate_
