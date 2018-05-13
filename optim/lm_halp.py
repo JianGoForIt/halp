@@ -23,7 +23,8 @@ class LMHALP(torch.optim.SGD):
     """
 
     def __init__(self, params, lr=required, T=required, data_loader=required,
-                 weight_decay=0.0, momentum=0.0, opt=torch.optim.SGD, mu=1e-1, bits=8, biased=False):
+                 weight_decay=0.0, momentum=0.0, opt=torch.optim.SGD, mu=1e-1, bits=8, 
+                 biased=False, data_scale=0.01):
 
         defaults = dict(lr=lr, weight_decay=weight_decay, momentum=momentum)
 
@@ -59,8 +60,12 @@ class LMHALP(torch.optim.SGD):
         self.T = T # Needed to trigger full gradient
         logging.info("Data Loader has {} with batch {}".format(len(self.data_loader),
                                                                self.data_loader.batch_size))
+        # record the scale of input feature data
+        self._data_scale = data_scale
         # Separate scale factor for each layer
         self._scale_factors = [1 for p in params]
+        self._scale_factors_i = [1 for p in params]
+        self._scale_factors_s = [1 for p in params]
         self._bits = bits
         self._mu = mu
         self._biased = biased
@@ -89,6 +94,8 @@ class LMHALP(torch.optim.SGD):
         div_factor = math.pow(2.0, self._bits-1) - 1
         for i, fg in enumerate(self._full_grad):
             self._scale_factors[i] = fg.norm() / (self._mu * div_factor)
+            self._scale_factors_i[i] = self._scale_factors[i] / float(2**self._bits)
+            self._scale_factors_s[i] = self._scale_factors[i] / float(2**self._bits) / self._data_scale
 
     def _reset_z(self):
         """Set z to zero."""
@@ -125,6 +132,10 @@ class LMHALP(torch.optim.SGD):
         # be set before backward is called the first time
         if self._full_grad is None:
             self._full_grad = [p.grad.data.clone() for p in self._params]
+
+    def quantize_full_grad(self):
+        for sf, p in zip(self.self._full_grad, self._scale_factors_i):
+            p.quantize_(sf, 2 * self._bits, biased=self._biased) 
 
     def step(self, closure):
         """Performs a single optimization step.
@@ -177,12 +188,13 @@ class LMHALP(torch.optim.SGD):
                 # gradient calculation is correct or not
                 # beta = lr * l_prime_curr
                 # TODO quantize gamma
-                gamma = beta 
+                gamma = beta.data.clone()
+                gamma.quantize_(self._scale_factors_s[i], self._bits, biased=self._biased)
                 if len(list(p.data.size() ) ) == 2:
                     assert np.allclose(torch.mm(l_prime_curr.data.transpose(0, 1), X.data).cpu().numpy(), p.grad.data.cpu().numpy() )
                     assert np.allclose(torch.mm(l_prime_prev.data.transpose(0, 1), X.data).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
                     # this is the weight matrix
-                    p.grad.data.copy_(torch.mm(gamma.data.transpose(0, 1), X.data) + self._full_grad[i] * lr)
+                    p.grad.data.copy_(torch.mm(gamma.transpose(0, 1), X.data) + self._full_grad[i] * lr)
                     # the next line below can be used to test whether the intermediate grad based 
                     # gradient calculation is correct or not
                     # p.grad.data.copy_(torch.mm(gamma.data.transpose(0, 1), X.data) )
@@ -193,8 +205,8 @@ class LMHALP(torch.optim.SGD):
                         torch.ones(n_sample, 1).type(type(l_prime_curr.data) ) ) ).cpu().numpy(), p.grad.data.cpu().numpy() )
                     assert np.allclose(torch.squeeze(torch.mm(l_prime_prev.data.transpose(0, 1), 
                         torch.ones(n_sample, 1).type(type(l_prime_prev.data) ) ) ).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
-                    p.grad.data.copy_(torch.squeeze(torch.mm(gamma.data.transpose(0, 1), 
-                        torch.ones(n_sample, 1).type(type(gamma.data) ) ) ) + self._full_grad[i] * lr)
+                    p.grad.data.copy_(torch.squeeze(torch.mm(gamma.transpose(0, 1), 
+                        torch.ones(n_sample, 1).type(type(gamma) ) ) ) + self._full_grad[i] * lr)
                     # the next line below can be used to test whether the intermediate grad based 
                     # gradient calculation is correct or not
                     # p.grad.data.copy_(torch.squeeze(torch.mm(gamma.data.transpose(0, 1), 
