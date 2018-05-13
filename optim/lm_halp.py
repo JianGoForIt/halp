@@ -190,9 +190,9 @@ class LMHALP(torch.optim.SGD):
                     # this is the bias vector
                     n_sample = gamma.size(0)
                     assert np.allclose(torch.squeeze(torch.mm(l_prime_curr.data.transpose(0, 1), 
-                        torch.ones(n_sample, 1).type(type(l_prime_curr.data) ) ) ), p.grad.data.cpu().numpy() )
+                        torch.ones(n_sample, 1).type(type(l_prime_curr.data) ) ) ).cpu().numpy(), p.grad.data.cpu().numpy() )
                     assert np.allclose(torch.squeeze(torch.mm(l_prime_prev.data.transpose(0, 1), 
-                        torch.ones(n_sample, 1).type(type(l_prime_prev.data) ) ) ), self._prev_grad[i].cpu().numpy() )
+                        torch.ones(n_sample, 1).type(type(l_prime_prev.data) ) ) ).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
                     p.grad.data.copy_(torch.squeeze(torch.mm(gamma.data.transpose(0, 1), 
                         torch.ones(n_sample, 1).type(type(gamma.data) ) ) ) + self._full_grad[i] * lr)
                     # the next line below can be used to test whether the intermediate grad based 
