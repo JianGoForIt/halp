@@ -199,8 +199,8 @@ class LMHALP(torch.optim.SGD):
                     print("beta quant ", self._scale_factors_s[i], self._bits)
                 gamma.quantize_(self._scale_factors_s[i], self._bits, biased=self._biased)
                 if len(list(p.data.size() ) ) == 2:
-                    assert np.allclose(torch.mm(l_prime_curr.data.transpose(0, 1), X.data).cpu().numpy(), p.grad.data.cpu().numpy() )
-                    assert np.allclose(torch.mm(l_prime_prev.data.transpose(0, 1), X.data).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
+                    #assert np.allclose(torch.mm(l_prime_curr.data.transpose(0, 1), X.data).cpu().numpy(), p.grad.data.cpu().numpy() )
+                    #assert np.allclose(torch.mm(l_prime_prev.data.transpose(0, 1), X.data).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
                     # this is the weight matrix
                     p.grad.data.copy_(torch.mm(gamma.transpose(0, 1), X.data) + self._alpha_full_grad[i] )
                     # the next line below can be used to test whether the intermediate grad based 
@@ -209,10 +209,10 @@ class LMHALP(torch.optim.SGD):
                 else:
                     # this is the bias vector
                     n_sample = gamma.size(0)
-                    assert np.allclose(torch.squeeze(torch.mm(l_prime_curr.data.transpose(0, 1), 
-                        torch.ones(n_sample, 1).type(type(l_prime_curr.data) ) ) ).cpu().numpy(), p.grad.data.cpu().numpy() )
-                    assert np.allclose(torch.squeeze(torch.mm(l_prime_prev.data.transpose(0, 1), 
-                        torch.ones(n_sample, 1).type(type(l_prime_prev.data) ) ) ).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
+                    #assert np.allclose(torch.squeeze(torch.mm(l_prime_curr.data.transpose(0, 1), 
+                    #    torch.ones(n_sample, 1).type(type(l_prime_curr.data) ) ) ).cpu().numpy(), p.grad.data.cpu().numpy() )
+                    #assert np.allclose(torch.squeeze(torch.mm(l_prime_prev.data.transpose(0, 1), 
+                    #    torch.ones(n_sample, 1).type(type(l_prime_prev.data) ) ) ).cpu().numpy(), self._prev_grad[i].cpu().numpy() )
                     p.grad.data.copy_(torch.squeeze(torch.mm(gamma.transpose(0, 1), 
                         torch.ones(n_sample, 1).type(type(gamma) ) ) ) + self._alpha_full_grad[i] )
                     # the next line below can be used to test whether the intermediate grad based 
