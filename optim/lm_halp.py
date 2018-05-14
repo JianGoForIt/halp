@@ -138,7 +138,7 @@ class LMHALP(torch.optim.SGD):
         for p, sf in zip(self._full_grad, self._scale_factors_i):
             lr = self.param_groups[0]['lr']
             self._alpha_full_grad.append(lr * p.clone() )
-            print "full gradient quant ", sf, 2 * self._bits
+            print("full gradient quant ", sf, 2 * self._bits)
             self._alpha_full_grad[-1].quantize_(sf, 2 * self._bits, biased=self._biased) 
 
     def step(self, closure):
@@ -195,8 +195,8 @@ class LMHALP(torch.optim.SGD):
                 # TODO quantize gamma
                 gamma = beta.data.clone()
                 if self.state['t_iters'] == 0:
-                    print "data quant ", self._data_scale, self._bits
-                    print "beta quant ", self._scale_factors_s[i], self._bits
+                    print("data quant ", self._data_scale, self._bits)
+                    print("beta quant ", self._scale_factors_s[i], self._bits)
                 gamma.quantize_(self._scale_factors_s[i], self._bits, biased=self._biased)
                 if len(list(p.data.size() ) ) == 2:
                     assert np.allclose(torch.mm(l_prime_curr.data.transpose(0, 1), X.data).cpu().numpy(), p.grad.data.cpu().numpy() )
@@ -233,7 +233,7 @@ class LMHALP(torch.optim.SGD):
         # Quantize z in place
         for p, sf in zip(self._z, self._scale_factors):
             if self.state['t_iters'] == 0:
-                print "z quant ", sf, self._bits
+                print("z quant ", sf, self._bits)
             p.quantize_(sf, self._bits, biased=self._biased)
 
         # Increment "inner loop" counter
