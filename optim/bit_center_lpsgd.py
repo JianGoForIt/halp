@@ -6,7 +6,7 @@ import math
 
 from .. import quantize
 
-class HALP(torch.optim.SGD):
+class BitCenterLPSGD(torch.optim.SGD):
     """Implements high-accuracy low-precision algorithm.
     Args:
         params (iterable): iterable of parameters to optimize
@@ -151,12 +151,12 @@ class HALP(torch.optim.SGD):
         self._zero_grad()
         loss = closure()
 
-        # Adjust the current gradient using the previous gradient and the full gradient.
-        for i, p in enumerate(self._params):
-            # Adjust gradient in-place
-            if p.grad is not None:
-                # gradient_update = curr_grad - prev_grad + full_grad
-                p.grad.data -= (self._prev_grad[i] - self._full_grad[i])
+        # # Adjust the current gradient using the previous gradient and the full gradient.
+        # for i, p in enumerate(self._params):
+        #     # Adjust gradient in-place
+        #     if p.grad is not None:
+        #         # gradient_update = curr_grad - prev_grad + full_grad
+        #         p.grad.data -= (self._prev_grad[i] - self._full_grad[i])
 
         # Set the param pointers to z to update z with step
         self._set_weights_grad(self._z, None)
