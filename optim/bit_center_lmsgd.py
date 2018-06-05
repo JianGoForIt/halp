@@ -138,7 +138,7 @@ class BitCenterLMSGD(torch.optim.SGD):
         for p, sf in zip(self._full_grad, self._scale_factors_i):
             lr = self.param_groups[0]['lr']
             self._alpha_full_grad.append(lr * p.clone() )
-            print("full gradient quant ", sf, 2 * self._bits)
+            # print("full gradient quant ", sf, 2 * self._bits)
             self._alpha_full_grad[-1].quantize_(sf, 2 * self._bits, biased=self._biased) 
 
     def step(self, closure):
